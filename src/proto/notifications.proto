@@ -9,23 +9,22 @@ service NotificationService {
 
 message MessageResponse {
   map<string, string> data = 1;
-  string req_uid = 2;
 }
 
 message Options {
-  string vendor = 2;
-  string org_uid = 3;
-  string vendor_secret = 4;
+  string vendor = 1;
+  string vendorSecret = 2;
 }
 
 message NotificationObj{
-  string org_uid = 1;
+  string resourceUid = 1;
   string title = 2;
   string message = 3;
-  string vendor = 4;
-  string category = 5;
-  string cta = 6;
-  map<string, string> meta = 7;
+  string scope = 4;
+  string vendor = 5;
+  string product = 6;
+  string category = 7;
+  string cta = 8;
 }
 
 message AddNotificationRequest {
@@ -38,7 +37,7 @@ message AddNotificationResponse {
 }
 
 message DeleteNotificationRequest{
-  string notification_id = 1;
+  repeated string ids = 1;
   Options options = 2;
 }
 

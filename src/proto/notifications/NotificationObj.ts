@@ -2,21 +2,23 @@
 
 
 export interface NotificationObj {
-  'orgUid'?: (string);
+  'resourceUid'?: (string);
   'title'?: (string);
   'message'?: (string);
+  'scope'?: (string);
   'vendor'?: (string);
+  'product'?: (string);
   'category'?: (string);
   'cta'?: (string);
-  'meta'?: ({[key: string]: string});
 }
 
 export interface NotificationObj__Output {
-  'orgUid': (string);
+  'resourceUid': (string);
   'title': (string);
   'message': (string);
+  'scope': (string);
   'vendor': (string);
+  'product': (string);
   'category': (string);
   'cta': (string);
-  'meta': ({[key: string]: string});
 }
