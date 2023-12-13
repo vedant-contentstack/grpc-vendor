@@ -1,62 +1,71 @@
 import { Injectable } from '@nestjs/common';
 import * as grpc from '@grpc/grpc-js';
-import * as protoLoader from '@grpc/proto-loader';
-import { ProtoGrpcType } from './proto/notifications';
-import { join } from 'path';
+import { NotificationServiceClient } from './proto/notifications_grpc_pb';
+import { promisify } from 'util';
+import {
+  NotificationRequest,
+  NotificationResponse,
+  Notification,
+} from './proto/notifications_pb';
 
 @Injectable()
 export class AppService {
-  async addNotification(): Promise<any> {
-    const PROTO_PATH = join(__dirname, 'proto/notifications.proto');
+  private static notificationsService: NotificationServiceClient;
+  private static grpcMetadata: grpc.Metadata;
 
-    const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
-      keepCase: true,
-      longs: String,
-      enums: String,
-      defaults: true,
-      oneofs: true,
-    });
-
-    const proto = grpc.loadPackageDefinition(
-      packageDefinition,
-    ) as unknown as ProtoGrpcType;
-
-    const client = new proto.notifications.NotificationService(
-      `${process.env.GRPC_URL}:${process.env.GRPC_PORT}`,
+  constructor() {
+    AppService.notificationsService = new NotificationServiceClient(
+      `localhost:5001`,
       grpc.credentials.createInsecure(),
     );
+    AppService.grpcMetadata = new grpc.Metadata();
+    AppService.grpcMetadata.add('vendor', 'de');
+    AppService.grpcMetadata.add('vendor_secret', 'de_secret');
+    AppService.grpcMetadata.add('requestId', '123-456-789');
+  }
 
-    const meta = new grpc.Metadata();
+  async addNotification(): Promise<any> {
+    const deadline = new Date();
+    deadline.setSeconds(deadline.getSeconds() + 5);
+    const waitTeamsServiceForReady = promisify(
+      AppService.notificationsService.waitForReady,
+    ).bind(AppService.notificationsService);
 
-    const notifications = [
-      {
-        title: 'Usage Exceeded',
-        message:
-          "<p>Bandwidth usage has exceeded the allocated limit of <b>100TB/month</b>.See<a href='https://app.contentstack.com/'>here</a></p>",
-        resourceUid: 'blt1b124f60763c1b10',
-        scope: 'org',
-        vendor: 'CMA',
-        product: 'CS',
-        category: 'TEXT',
-        cta: 'https://app.contentstack.com',
-      },
-    ];
+    await waitTeamsServiceForReady(deadline)
+      .then((res) => {
+        console.log('Connected');
+      })
+      .catch((err: Error) => {
+        console.error(err);
+        throw new Error(`Couldn't connect to teams service at localhost:3003`);
+      });
+
+    const addNotificationRequest = new NotificationRequest();
+    const notification = new Notification();
+    notification.setTitle('Usage Exceeded');
+    notification.setMessage(
+      "<p>Bandwidth usage has exceeded the allocated limit of <b>100TB/month</b>.See<a href='https://app.contentstack.com/'>here</a><script></p>",
+    );
+    notification.setVendor('DE');
+    notification.setResourceUid('blt29e5403a6ea88ea2');
+    notification.setScope('org');
+    notification.setCategory('TEXT');
+    notification.setProduct('CS');
+
+    addNotificationRequest.setNotification(notification);
+
+    const metadata = new grpc.Metadata();
+    metadata.merge(AppService.grpcMetadata);
 
     return new Promise((resolve, reject) => {
-      client.AddNotification(
-        {
-          notifications,
-          options: {
-            vendor: 'de',
-            vendorSecret: process.env.DE_SECRET,
-          },
-        },
-        meta,
-        (err, val) => {
+      AppService.notificationsService.createNotification(
+        addNotificationRequest,
+        metadata,
+        (err: grpc.ServiceError, response: NotificationResponse) => {
           if (err) {
             return reject(err);
           }
-          return resolve(val);
+          return resolve(response.toObject().status);
         },
       );
     });
